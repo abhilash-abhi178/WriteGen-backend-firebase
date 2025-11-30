@@ -1,30 +1,21 @@
-# app/core/firebase.py
-import os
+import json
 import firebase_admin
-from firebase_admin import credentials, auth, firestore, storage
-from google.cloud import firestore as gcf_firestore
+from firebase_admin import credentials, firestore, auth
+from google.cloud import storage
+import os
 
-FIREBASE_CREDS_PATH = os.getenv("GOOGLE_APPLICATION_CREDENTIALS", "firebase/firebase-adminsdk.json")
-FIREBASE_STORAGE_BUCKET = os.getenv("FIREBASE_STORAGE_BUCKET", None)  # e.g. my-project.appspot.com
+# Read service account JSON from environment variable
+firebase_creds = os.getenv("FIREBASE_CREDENTIALS_JSON")
 
-if not firebase_admin._apps:
-    cred = credentials.Certificate(FIREBASE_CREDS_PATH)
-    firebase_admin.initialize_app(cred, {
-        "storageBucket": FIREBASE_STORAGE_BUCKET
-    })
+if not firebase_creds:
+    raise Exception("Missing FIREBASE_CREDENTIALS_JSON environment variable")
+
+# Convert JSON string to Python dict
+firebase_creds_dict = json.loads(firebase_creds)
+
+# Initialize Firebase app
+cred = credentials.Certificate(firebase_creds_dict)
+firebase_admin.initialize_app(cred)
 
 db = firestore.client()
-bucket = storage.bucket()
-
-def verify_id_token(id_token: str):
-    """
-    Verify Firebase ID token, returns decoded token dict or raise Exception.
-    """
-    try:
-        decoded = auth.verify_id_token(id_token)
-        return decoded
-    except Exception as e:
-        raise
-
-def user_doc_ref(uid: str):
-    return db.collection("users").document(uid)
+storage_client = storage.Client()
