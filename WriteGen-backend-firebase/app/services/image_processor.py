@@ -2,10 +2,10 @@
 import cv2
 import numpy as np
 from PIL import Image
-import potrace
-from typing import List, Dict
+from typing import List, Dict, Tuple
 import os
 from app.core.config import settings
+
 
 class ImageProcessor:
     def __init__(self):
@@ -15,6 +15,8 @@ class ImageProcessor:
 
     async def process_image(self, image_path: str) -> str:
         img = cv2.imread(image_path)
+        if img is None:
+            raise FileNotFoundError(f"Image not found: {image_path}")
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         deskewed = self._deskew_image(gray)
         cropped = self._auto_crop(deskewed)
@@ -27,7 +29,7 @@ class ImageProcessor:
 
     def _deskew_image(self, image: np.ndarray) -> np.ndarray:
         edges = cv2.Canny(image, 50, 150, apertureSize=3)
-        lines = cv2.HoughLines(edges, 1, np.pi/180, 100)
+        lines = cv2.HoughLines(edges, 1, np.pi / 180, 100)
         if lines is None:
             return image
         angles = []
@@ -77,34 +79,38 @@ class ImageProcessor:
         return binary
 
     async def extract_strokes(self, image_path: str) -> List[Dict]:
-        img = Image.open(image_path).convert('1')
-        img_array = np.array(img)
-        bmp = potrace.Bitmap(img_array)
-        path = bmp.trace()
-        strokes = []
-        for curve in path:
+        # Use OpenCV contours as stroke approximations (raster -> simplified paths)
+        img = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
+        if img is None:
+            return []
+        # Ensure binary image
+        _, thresh = cv2.threshold(img, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+        contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        strokes: List[Dict] = []
+        for cnt in contours:
+            if cnt is None or len(cnt) == 0:
+                continue
+            # approximate contour to reduce points
+            epsilon = 0.01 * cv2.arcLength(cnt, True)
+            approx = cv2.approxPolyDP(cnt, epsilon, True)
+            points = [tuple(pt[0]) for pt in approx]
+            # build simple SVG-like path (M + L commands)
+            if not points:
+                continue
+            path_str = f"M{points[0][0]},{points[0][1]}"
+            for (x, y) in points[1:]:
+                path_str += f" L{x},{y}"
+            if cv2.contourArea(cnt) > 0 and cv2.isContourConvex(approx):
+                path_str += " Z"
+            x, y, w, h = cv2.boundingRect(cnt)
             stroke_data = {
-                "path": self._curve_to_svg_path(curve),
-                "bbox": getattr(curve, "bbox", None),
-                "length": len(curve.segments)
+                "path": path_str,
+                "bbox": (int(x), int(y), int(x + w), int(y + h)),
+                "length": len(points)
             }
             strokes.append(stroke_data)
         return strokes
 
     def _curve_to_svg_path(self, curve) -> str:
-        path_parts = []
-        start_point = curve.start_point
-        path_parts.append(f"M{start_point[0]},{start_point[1]}")
-        for segment in curve.segments:
-            if segment.is_corner:
-                c = segment.c
-                end_point = segment.end_point
-                path_parts.append(f"L{c[0]},{c[1]} L{end_point[0]},{end_point[1]}")
-            else:
-                c1 = segment.c1
-                c2 = segment.c2
-                end_point = segment.end_point
-                path_parts.append(f"C{c1[0]},{c1[1]} {c2[0]},{c2[1]} {end_point[0]},{end_point[1]}")
-        if curve.is_closed:
-            path_parts.append("Z")
-        return " ".join(path_parts)
+        # This helper belonged to potrace-based implementation and is no longer used.
+        return ""
