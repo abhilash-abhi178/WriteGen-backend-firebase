@@ -23,6 +23,20 @@ def _load_firebase_credentials() -> dict:
         except Exception as e:
             raise Exception(f"Failed to read Firebase credentials file '{cred_path}': {e}")
 
+    # Fallback: construct minimal service account dict from individual env vars
+    client_email = os.getenv("FIREBASE_CLIENT_EMAIL")
+    private_key = os.getenv("FIREBASE_PRIVATE_KEY")
+    project_id = os.getenv("FIREBASE_PROJECT_ID")
+    if client_email and private_key and project_id:
+        # private_key from env may contain literal '\n' sequences; convert them to actual newlines
+        normalized_key = private_key.replace("\\n", "\n")
+        return {
+            "type": "service_account",
+            "project_id": project_id,
+            "private_key": normalized_key,
+            "client_email": client_email,
+        }
+
     raise Exception(
         "Missing Firebase credentials. Set FIREBASE_CREDENTIALS_JSON (JSON string) or FIREBASE_CREDENTIALS_PATH/GOOGLE_APPLICATION_CREDENTIALS (path to JSON file)."
     )
