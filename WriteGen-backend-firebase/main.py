@@ -1,20 +1,29 @@
-
+#main.py
+import os
 from fastapi import FastAPI
-from api.upload import router as upload_router
-from api.styles import router as styles_router
-from api.generate import router as generate_router
+from fastapi.middleware.cors import CORSMiddleware
+from dotenv import load_dotenv
 
-app = FastAPI(
-    title="WriteGen Backend",
-    description="AI Handwriting Generator Backend",
-    version="1.0.0"
+load_dotenv()
+
+from app.api.routes import auth, samples, styles, generation, export
+
+app = FastAPI(title="WriteGen - Handwriting API (Firebase)")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # tighten in prod
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
-# Include all API endpoints
-app.include_router(upload_router, prefix="/api/samples")
-app.include_router(styles_router, prefix="/api/styles")
-app.include_router(generate_router, prefix="/api/generate")
+app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
+app.include_router(samples.router, prefix="/api/samples", tags=["samples"])
+app.include_router(styles.router, prefix="/api/styles", tags=["styles"])
+app.include_router(generation.router, prefix="/api/generate", tags=["generation"])
+app.include_router(export.router, prefix="/api/export", tags=["export"])
 
 @app.get("/")
-def home():
-    return {"status": "running", "message": "WriteGen backend active"}
+async def root():
+    return {"message": "WriteGen API (Firebase)", "version": "1.0.0"}
