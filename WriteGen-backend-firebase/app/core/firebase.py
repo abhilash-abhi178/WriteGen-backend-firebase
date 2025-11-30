@@ -1,5 +1,6 @@
 import json
 import os
+import urllib.parse
 import firebase_admin
 from firebase_admin import credentials, firestore, auth
 from google.cloud import storage
@@ -30,11 +31,19 @@ def _load_firebase_credentials() -> dict:
     if client_email and private_key and project_id:
         # private_key from env may contain literal '\n' sequences; convert them to actual newlines
         normalized_key = private_key.replace("\\n", "\n")
+        # Build a full-service-account-like dict expected by google-auth
+        client_x509_url = f"https://www.googleapis.com/robot/v1/metadata/x509/{urllib.parse.quote(client_email)}"
         return {
             "type": "service_account",
             "project_id": project_id,
+            "private_key_id": "",
             "private_key": normalized_key,
             "client_email": client_email,
+            "client_id": "",
+            "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+            "token_uri": "https://oauth2.googleapis.com/token",
+            "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+            "client_x509_cert_url": client_x509_url,
         }
 
     raise Exception(
