@@ -9,7 +9,8 @@ pydantic==2.5.3
 opencv-python==4.9.0.80
 Pillow==10.2.0
 numpy==1.26.3
-potrace==1.0.0
+py-potrace==0.2
+
 svgwrite==1.4.3
 reportlab==4.0.9
 aiofiles==23.2.1
