@@ -5,6 +5,7 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from bson import ObjectId
+from bson.errors import InvalidId
 
 from app.core.database import get_database
 from app.core.firebase import get_current_user_id
@@ -41,19 +42,21 @@ async def create_style(
     
     for sample_id in sample_ids:
         try:
-            sample = await db.samples.find_one({
-                "_id": ObjectId(sample_id),
-                "user_id": user_id,
-            })
-            if not sample:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail=f"Sample {sample_id} not found or does not belong to user",
-                )
-        except Exception:
+            object_id = ObjectId(sample_id)
+        except (InvalidId, TypeError, ValueError):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Invalid sample ID: {sample_id}",
+                detail=f"Invalid sample ID format: {sample_id}",
+            )
+        
+        sample = await db.samples.find_one({
+            "_id": object_id,
+            "user_id": user_id,
+        })
+        if not sample:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Sample {sample_id} not found or does not belong to user",
             )
     
     # Create style document
@@ -102,15 +105,17 @@ async def get_style_status(
     Get the training status of a style.
     """
     try:
-        style = await db.styles.find_one({
-            "_id": ObjectId(style_id),
-            "user_id": user_id,
-        })
-    except Exception:
+        object_id = ObjectId(style_id)
+    except (InvalidId, TypeError, ValueError):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid style ID",
+            detail="Invalid style ID format",
         )
+    
+    style = await db.styles.find_one({
+        "_id": object_id,
+        "user_id": user_id,
+    })
     
     if not style:
         raise HTTPException(

@@ -98,5 +98,14 @@ async def get_current_user_id(
         
     Returns:
         The user's Firebase UID.
+        
+    Raises:
+        HTTPException: If the user ID is not found in the token.
     """
-    return current_user.get("uid", "")
+    uid = current_user.get("uid")
+    if not uid:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User ID not found in token",
+        )
+    return uid

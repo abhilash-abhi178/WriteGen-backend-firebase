@@ -4,6 +4,7 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from bson import ObjectId
+from bson.errors import InvalidId
 
 from app.core.database import get_database
 from app.core.firebase import get_current_user_id
@@ -37,15 +38,17 @@ async def generate_handwriting(
     """
     # Verify the style exists and belongs to the user
     try:
-        style = await db.styles.find_one({
-            "_id": ObjectId(request.style_id),
-            "user_id": user_id,
-        })
-    except Exception:
+        object_id = ObjectId(request.style_id)
+    except (InvalidId, TypeError, ValueError):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid style ID",
+            detail="Invalid style ID format",
         )
+    
+    style = await db.styles.find_one({
+        "_id": object_id,
+        "user_id": user_id,
+    })
     
     if not style:
         raise HTTPException(
@@ -99,15 +102,17 @@ async def get_generation_result(
     Get the result of a generation job.
     """
     try:
-        job = await db.generation_jobs.find_one({
-            "_id": ObjectId(job_id),
-            "user_id": user_id,
-        })
-    except Exception:
+        object_id = ObjectId(job_id)
+    except (InvalidId, TypeError, ValueError):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid job ID",
+            detail="Invalid job ID format",
         )
+    
+    job = await db.generation_jobs.find_one({
+        "_id": object_id,
+        "user_id": user_id,
+    })
     
     if not job:
         raise HTTPException(

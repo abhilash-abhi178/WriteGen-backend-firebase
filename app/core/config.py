@@ -18,6 +18,9 @@ class Settings(BaseSettings):
     # Firebase settings
     firebase_credentials_path: str = ""
     
+    # CORS settings
+    cors_origins: str = "http://localhost:3000,http://localhost:8080"
+    
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"
