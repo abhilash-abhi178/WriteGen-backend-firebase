@@ -1,12 +1,12 @@
 FROM python:3.10-slim
 
 # Install potrace (needed for SVG vectorization)
-RUN apt-get update && apt-get install -y potrace
+#RUN apt-get update && apt-get install -y potrace
 
 WORKDIR /app
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+#COPY requirements.txt .
+#RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
