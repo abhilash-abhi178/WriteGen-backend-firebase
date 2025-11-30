@@ -1,10 +1,10 @@
-# stroke extraction using potrace + OpenCV
+# stroke extraction using OpenCV contours (no potrace)
 import os
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Tuple
 from PIL import Image
 import numpy as np
 import cv2
-import potrace
+
 
 class StrokeEngine:
     def __init__(self, tmp_dir: str = "/tmp"):
@@ -18,7 +18,7 @@ class StrokeEngine:
             raise FileNotFoundError(image_path)
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         # simple denoise + CLAHE
-        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
+        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
         enhanced = clahe.apply(gray)
         # adaptive threshold
         bin_img = cv2.adaptiveThreshold(enhanced, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
@@ -28,47 +28,35 @@ class StrokeEngine:
         return out_path
 
     async def extract_strokes(self, bin_image_path: str) -> List[Dict[str, Any]]:
-        im = Image.open(bin_image_path).convert("1")
-        arr = np.array(im, dtype=np.uint8)
-        # potrace expects 1 for black pixels; Pillow's '1' mode uses 0/255; convert to boolean
-        bitmap = potrace.Bitmap(arr)
-        path_iter = bitmap.trace()
-        strokes = []
-        for curve in path_iter:
-            svg_path = self._curve_to_svg(curve)
-            strokes.append({
-                "path": svg_path,
-                "bbox": getattr(curve, "bbox", None),
-                "closed": getattr(curve, "is_closed", False),
-                "segments": len(curve.segments) if hasattr(curve, "segments") else None
-            })
-        return strokes
-
-    def _curve_to_svg(self, curve) -> str:
-        # Convert potrace curve object to basic SVG path (commands)
-        parts = []
-        # start_point may be tuple or object
-        sp = getattr(curve, "start_point", None)
-        if sp is None:
-            # fallback
-            return ""
-        parts.append(f"M{sp[0]},{sp[1]}")
-        for seg in curve:
-            # potrace curve iteration yields segments; adapt pattern
-            try:
-                if seg.is_corner:
-                    # two points: c, end
-                    c = seg.c
-                    end = seg.end_point
-                    parts.append(f"L{c[0]},{c[1]} L{end[0]},{end[1]}")
-                else:
-                    c1 = seg.c1
-                    c2 = seg.c2
-                    end = seg.end_point
-                    parts.append(f"C{c1[0]},{c1[1]} {c2[0]},{c2[1]} {end[0]},{end[1]}")
-            except Exception:
-                # Defensive: skip malformed segments
+        # Use OpenCV contours to approximate strokes from a binarized image
+        img = cv2.imread(bin_image_path, cv2.IMREAD_GRAYSCALE)
+        if img is None:
+            return []
+        # Ensure binary (invert so strokes are white on black for findContours if needed)
+        _, thresh = cv2.threshold(img, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+        # Invert so contours correspond to ink regions
+        thresh_inv = cv2.bitwise_not(thresh)
+        contours, _ = cv2.findContours(thresh_inv, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        strokes: List[Dict[str, Any]] = []
+        for cnt in contours:
+            if cnt is None or len(cnt) == 0:
                 continue
-        if getattr(curve, "is_closed", False):
-            parts.append("Z")
-        return " ".join(parts)
+            # approximate contour to reduce points
+            epsilon = 0.01 * cv2.arcLength(cnt, True)
+            approx = cv2.approxPolyDP(cnt, epsilon, True)
+            points = [tuple(pt[0]) for pt in approx]
+            if not points:
+                continue
+            # build simple path (M + L commands)
+            path_str = f"M{points[0][0]},{points[0][1]}"
+            for (x, y) in points[1:]:
+                path_str += f" L{x},{y}"
+            x, y, w, h = cv2.boundingRect(cnt)
+            stroke = {
+                "path": path_str,
+                "bbox": (int(x), int(y), int(x + w), int(y + h)),
+                "closed": bool(cv2.isContourConvex(approx)),
+                "segments": len(points)
+            }
+            strokes.append(stroke)
+        return strokes
