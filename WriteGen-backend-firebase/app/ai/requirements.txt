@@ -1,0 +1,9 @@
+httpx==0.26.0
+numpy==1.26.3
+opencv-python==4.9.0.80
+Pillow==10.2.0
+potrace==1.0.0
+svgwrite==1.4.3
+cairosvg==2.6.2
+httpx==0.26.0
+python-dotenv==1.0.0
