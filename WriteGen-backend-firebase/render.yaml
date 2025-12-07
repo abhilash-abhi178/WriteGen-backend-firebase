@@ -5,7 +5,7 @@ services:
     plan: starter
     repo: https://github.com/abhilash-abhi178/WriteGen-backend-firebase
     branch: main
-    healthCheckPath: /
+    healthCheckPath: /api/health
     dockerfilePath: Dockerfile
     startCommand: uvicorn server:app --host 0.0.0.0 --port 10000
     envVars:

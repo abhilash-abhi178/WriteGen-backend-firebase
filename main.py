@@ -11,6 +11,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse
 from datetime import datetime
+from app.api.routes import auth, samples, styles, generation, export, dashboard
+
 
 from app.core.config import settings
 from app.api import routes
@@ -132,6 +134,9 @@ app.include_router(
     prefix=f"/api/{settings.api_version}",
     tags=["Add-ons"]
 )
+app.include_router(
+    dashboard.router, prefix="/api")
+
 
 
 # Root redirect
