@@ -1,28 +1,34 @@
-"""WriteGen Backend - FastAPI Application.
-
-Main entry point for the AI-powered handwriting document generator backend.
-"""
-
+# server.py
 import os
-import logging
-from contextlib import asynccontextmanager
-from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.middleware.trustedhost import TrustedHostMiddleware
-from fastapi.responses import JSONResponse
-from datetime import datetime
+from dotenv import load_dotenv
+
+load_dotenv()
+
 from app.api.routes import auth, samples, styles, generation, export, dashboard
 
+app = FastAPI(title="WriteGen - Handwriting API (Firebase)")
 
-from app.core.config import settings
-from app.api import routes
-
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO if not settings.debug else logging.DEBUG,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # tighten in prod
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
-logger = logging.getLogger(__name__)
+
+app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
+app.include_router(samples.router, prefix="/api/samples", tags=["samples"])
+app.include_router(styles.router, prefix="/api/styles", tags=["styles"])
+app.include_router(generation.router, prefix="/api/generate", tags=["generation"])
+app.include_router(export.router, prefix="/api/export", tags=["export"])
+app.include_router(dashboard.router, prefix="/api", tags=["dashboard"])
+
+@app.get("/")
+async def root():
+    return {"message": "WriteGen API (Firebase)", "version": "1.0.0"}
+
 
 
 # Lifespan context
