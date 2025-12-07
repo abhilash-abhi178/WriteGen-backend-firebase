@@ -1,0 +1,49 @@
+# Core FastAPI & Web
+fastapi==0.109.0
+uvicorn[standard]==0.27.0
+python-multipart==0.0.6
+httpx==0.26.0
+
+# Authentication & Security
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+pydantic==2.5.3
+pydantic-settings==2.1.0
+
+# Environment & Config
+python-dotenv==1.0.0
+
+# Firebase
+firebase-admin==6.0.1
+google-cloud-firestore==2.11.1
+google-cloud-storage==2.13.0
+
+# AI/ML & Image Processing
+torch==2.1.2
+torchvision==0.16.2
+pillow==10.2.0
+opencv-python==4.9.0.80
+numpy==1.26.3
+scikit-image==0.22.0
+scipy==1.11.4
+
+# Rendering & Export
+reportlab==4.0.9
+svgwrite==1.4.3
+cairosvg==2.8.2
+fonttools==4.47.0
+
+# Async & I/O
+aiofiles==23.2.1
+
+# Async Tasks
+celery==5.3.4
+redis==5.0.1
+
+# Logging & Monitoring
+structlog==23.3.0
+python-json-logger==2.0.7
+
+# Testing
+pytest==7.4.4
+pytest-asyncio==0.23.2
