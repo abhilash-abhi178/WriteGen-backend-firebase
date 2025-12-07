@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from app.api.routes import auth, samples, styles, generation, export
+from app.api.routes import auth, samples, styles, generation, export, dashboard
 
 app = FastAPI(title="WriteGen - Handwriting API (Firebase)")
 
@@ -23,6 +23,7 @@ app.include_router(samples.router, prefix="/api/samples", tags=["samples"])
 app.include_router(styles.router, prefix="/api/styles", tags=["styles"])
 app.include_router(generation.router, prefix="/api/generate", tags=["generation"])
 app.include_router(export.router, prefix="/api/export", tags=["export"])
+app.include_router(dashboard.router, prefix="/api", tags=["dashboard"])
 
 @app.get("/")
 async def root():
