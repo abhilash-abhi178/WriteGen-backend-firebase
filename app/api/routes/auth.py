@@ -212,6 +212,39 @@ async def get_current_user_info(current_user: dict = Depends(get_current_user)):
     )
 
 
+@router.get("/profile")
+async def get_profile(current_user: dict = Depends(get_current_user)):
+    """Get current user profile with style status (alias for /me)."""
+    # Check if user has style profile by looking for styles
+    try:
+        from app.core.firebase import db
+    except:
+        from app.core.mock_db import mock_db as db
+    
+    uid = current_user.get("user_id") or current_user.get("uid")
+    
+    # Check if user has created any styles
+    has_style_profile = False
+    try:
+        styles = list(db.collection("styles").where("uid", "==", uid).stream())
+        has_style_profile = len(styles) > 0
+    except:
+        pass
+    
+    return {
+        "user_id": current_user.get("user_id"),
+        "email": current_user.get("email"),
+        "display_name": current_user.get("display_name"),
+        "created_at": current_user.get("created_at"),
+        "email_verified": current_user.get("email_verified", False),
+        "privacy": current_user.get("privacy", {}),
+        "subscription_plan": current_user.get("subscription_plan", "free"),
+        "updated_at": current_user.get("updated_at", current_user.get("created_at")),
+        "hasStyleProfile": has_style_profile,
+        "style_status": "active" if has_style_profile else "pending"
+    }
+
+
 @router.put("/me")
 async def update_user(
     update: user_schemas.UserUpdate,
