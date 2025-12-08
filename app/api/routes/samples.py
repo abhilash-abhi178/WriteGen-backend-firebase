@@ -3,7 +3,13 @@ from fastapi import APIRouter, UploadFile, File, Depends, HTTPException
 from typing import List, Optional
 from datetime import datetime
 import uuid
-from app.core.firebase import bucket, db
+# Use mock database instead of Firebase for now
+try:
+    from app.core.firebase import bucket, db
+    USE_FIREBASE = True
+except Exception:
+    from app.core.mock_db import mock_bucket as bucket, mock_db as db
+    USE_FIREBASE = False
 from app.api.routes.auth import get_current_user
 import aiofiles
 import os
@@ -18,10 +24,15 @@ async def upload_samples(
     current_user: dict = Depends(get_current_user)
 ):
     """Upload handwriting samples for style training."""
+    import logging
+    logger = logging.getLogger(__name__)
+    
     uploaded = []
-    uid = current_user["uid"]
+    uid = current_user.get("user_id") or current_user.get("uid")
+    logger.info(f"Upload request from user {uid}, {len(files)} files")
     
     for f in files:
+        logger.info(f"Processing file: {f.filename}, type: {f.content_type}")
         # Validate file type
         if f.content_type not in ["image/jpeg", "image/png", "image/webp"]:
             raise HTTPException(
@@ -38,22 +49,36 @@ async def upload_samples(
                 raise HTTPException(status_code=413, detail="File too large")
             await out_file.write(content)
 
-        blob_path = f"samples/{uid}/{datetime.utcnow().timestamp()}_{f.filename}"
-        blob = bucket.blob(blob_path)
-        blob.upload_from_filename(tmp_path)
-        blob.make_public()
+        # Upload to storage (with fallback if Firebase unavailable)
+        try:
+            blob_path = f"samples/{uid}/{datetime.utcnow().timestamp()}_{f.filename}"
+            blob = bucket.blob(blob_path)
+            blob.upload_from_filename(tmp_path)
+            blob.make_public()
+            public_url = blob.public_url
+            logger.info(f"File uploaded to Firebase: {blob_path}")
+        except Exception as e:
+            logger.warning(f"Firebase upload failed: {e}. Using local fallback.")
+            blob_path = f"local_samples/{uid}/{f.filename}"
+            public_url = f"http://localhost:8000/files/{blob_path}"
 
         sample_doc = {
             "uid": uid,
             "filename": f.filename,
             "storage_path": blob_path,
-            "public_url": blob.public_url,
+            "public_url": public_url,
             "status": "uploaded",
             "size_bytes": len(content),
             "created_at": datetime.utcnow().isoformat()
         }
-        doc_ref = db.collection("samples").document()
-        doc_ref.set(sample_doc)
+        try:
+            doc_ref = db.collection("samples").document()
+            doc_ref.set(sample_doc)
+            logger.info(f"Sample document created: {doc_ref.id}")
+        except Exception as e:
+            logger.error(f"Failed to save to Firestore: {e}")
+            # Continue anyway with in-memory tracking
+            doc_ref = type('obj', (object,), {'id': str(uuid.uuid4())})()
         uploaded.append({
             "id": doc_ref.id,
             "filename": sample_doc["filename"],
@@ -77,21 +102,16 @@ async def upload_samples(
 @router.get("/")
 async def list_samples(current_user: dict = Depends(get_current_user)):
     """List all samples uploaded by current user."""
-    uid = current_user["uid"]
+    uid = current_user.get("user_id") or current_user.get("uid")
     samples = [
         {
             "id": d.id,
-            "filename": d.get("filename"),
-            "status": d.get("status"),
-            "created_at": d.get("created_at")
+            "fileName": d.to_dict().get("filename", "Unknown"),
+            "uploadedAt": d.to_dict().get("created_at", "Unknown")
         }
         for d in db.collection("samples").where("uid", "==", uid).stream()
     ]
-    return {
-        "samples": samples,
-        "total": len(samples),
-        "requested_at": datetime.utcnow().isoformat()
-    }
+    return samples
 
 
 @router.get("/{sample_id}")

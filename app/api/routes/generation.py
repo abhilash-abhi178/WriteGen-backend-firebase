@@ -1,14 +1,33 @@
 # app/api/routes/generation.py
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from typing import List, Optional, Dict
+from pydantic import BaseModel
 from app.api.routes.auth import get_current_user
-from app.core.firebase import db
+# Use mock database fallback
+try:
+    from app.core.firebase import db
+except:
+    from app.core.mock_db import mock_db as db
 from datetime import datetime
 import uuid
-from app.services.generation_service import GenerationService
+try:
+    from app.services.generation_service import GenerationService
+except:
+    GenerationService = None
 
 router = APIRouter()
-generation_service = GenerationService()
+if GenerationService:
+    generation_service = GenerationService()
+else:
+    generation_service = None
+
+
+class DocumentCreate(BaseModel):
+    title: str
+    content: str
+    fontSize: Optional[int] = 16
+    lineHeight: Optional[float] = 1.5
+    fontStyle: Optional[str] = "normal"
 
 
 def run_generation_job(job_id: str):
@@ -214,3 +233,53 @@ async def batch_generate(
         "message": f"{len(job_ids)} generation jobs queued",
         "created_at": datetime.utcnow().isoformat()
     }
+
+
+@router.post("/create")
+async def create_document(
+    doc_data: DocumentCreate,
+    current_user: dict = Depends(get_current_user)
+):
+    """Create a new document for handwriting generation."""
+    user_id = current_user.get("user_id") or current_user.get("uid")
+    
+    document = {
+        "uid": user_id,
+        "title": doc_data.title,
+        "content": doc_data.content,
+        "fontSize": doc_data.fontSize,
+        "lineHeight": doc_data.lineHeight,
+        "fontStyle": doc_data.fontStyle,
+        "status": "draft",
+        "page_count": max(1, len(doc_data.content) // 500),
+        "created_at": datetime.utcnow().isoformat(),
+        "updated_at": datetime.utcnow().isoformat()
+    }
+    
+    doc_ref = db.collection("documents").document()
+    doc_ref.set(document)
+    
+    return {
+        "document_id": doc_ref.id,
+        "id": doc_ref.id,
+        "status": "created",
+        "message": "Document created successfully"
+    }
+
+
+@router.get("/documents")
+async def list_user_documents(current_user: dict = Depends(get_current_user)):
+    """Get user's documents."""
+    user_id = current_user.get("user_id") or current_user.get("uid")
+    
+    documents = []
+    for doc in db.collection("documents").where("uid", "==", user_id).stream():
+        doc_data = doc.to_dict()
+        documents.append({
+            "id": doc.id,
+            "name": doc_data.get("title", "Untitled"),
+            "lastModified": doc_data.get("updated_at", doc_data.get("created_at", "Unknown")),
+            "status": doc_data.get("status", "draft")
+        })
+    
+    return documents

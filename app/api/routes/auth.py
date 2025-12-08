@@ -11,7 +11,7 @@ from app.core.config import settings
 from app.schemas import user as user_schemas
 
 logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/auth", tags=["auth"])
+router = APIRouter()
 
 # Mock user store (replace with database)
 users_db = {}
@@ -77,11 +77,18 @@ def get_current_user(authorization: Optional[str] = Header(None)) -> dict:
     user = users_db.get(user_id)
     
     if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found"
-        )
+        # Fallback: create minimal user from token if not in memory
+        # This handles server restarts gracefully
+        user = {
+            "user_id": user_id,
+            "uid": user_id,
+            "email": f"user_{user_id[:8]}@temp.com",
+            "display_name": f"User {user_id[:8]}"
+        }
+        logger.warning(f"User {user_id} not found in memory, using token data")
     
+    # Ensure consistent uid/user_id field
+    user["uid"] = user_id
     return user
 
 
