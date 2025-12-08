@@ -1,0 +1,9 @@
+# Exclude nested copies and archives
+WriteGen-backend-firebase/
+*.zip
+*.tar
+*.tar.gz
+__pycache__/
+node_modules/
+.env
+*.pyc
