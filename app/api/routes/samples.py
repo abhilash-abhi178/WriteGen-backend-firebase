@@ -29,10 +29,7 @@ async def upload_samples(
     
     uploaded = []
     uid = current_user.get("user_id") or current_user.get("uid")
-<<<<<<< HEAD
     logger.info(f"Upload request from user {uid}, {len(files)} files")
-=======
->>>>>>> 8bbe03e4b99a93cdf9105046218a1a8d56789978
     
     for f in files:
         logger.info(f"Processing file: {f.filename}, type: {f.content_type}")
