@@ -11,7 +11,7 @@ from app.core.config import settings
 from app.schemas import user as user_schemas
 
 logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/auth", tags=["auth"])
+router = APIRouter()
 
 # Mock user store (replace with database)
 users_db = {}
@@ -82,6 +82,8 @@ def get_current_user(authorization: Optional[str] = Header(None)) -> dict:
             detail="User not found"
         )
     
+    # Ensure consistent uid/user_id field
+    user["uid"] = user_id
     return user
 
 

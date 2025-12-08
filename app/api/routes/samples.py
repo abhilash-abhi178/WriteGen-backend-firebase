@@ -19,7 +19,7 @@ async def upload_samples(
 ):
     """Upload handwriting samples for style training."""
     uploaded = []
-    uid = current_user["uid"]
+    uid = current_user.get("user_id") or current_user.get("uid")
     
     for f in files:
         # Validate file type
@@ -77,21 +77,16 @@ async def upload_samples(
 @router.get("/")
 async def list_samples(current_user: dict = Depends(get_current_user)):
     """List all samples uploaded by current user."""
-    uid = current_user["uid"]
+    uid = current_user.get("user_id") or current_user.get("uid")
     samples = [
         {
             "id": d.id,
-            "filename": d.get("filename"),
-            "status": d.get("status"),
-            "created_at": d.get("created_at")
+            "fileName": d.to_dict().get("filename", "Unknown"),
+            "uploadedAt": d.to_dict().get("created_at", "Unknown")
         }
         for d in db.collection("samples").where("uid", "==", uid).stream()
     ]
-    return {
-        "samples": samples,
-        "total": len(samples),
-        "requested_at": datetime.utcnow().isoformat()
-    }
+    return samples
 
 
 @router.get("/{sample_id}")
