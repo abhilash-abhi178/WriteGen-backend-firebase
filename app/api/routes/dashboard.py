@@ -1,6 +1,5 @@
 from fastapi import APIRouter, Depends
 from app.api.routes.auth import get_current_user
-<<<<<<< HEAD
 # Use mock database instead of Firebase for now
 try:
     from app.core.firebase import db
@@ -8,9 +7,6 @@ try:
 except Exception:
     from app.core.mock_db import mock_db as db
     USE_FIREBASE = False
-=======
-from app.core.firebase import db
->>>>>>> 8bbe03e4b99a93cdf9105046218a1a8d56789978
 from datetime import datetime
 
 router = APIRouter()
