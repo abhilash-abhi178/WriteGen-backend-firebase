@@ -1,6 +1,9 @@
 # syntax=docker/dockerfile:1.4
 FROM python:3.10-slim
 
+# Trigger rebuild - Force Render to redeploy
+# Build ID: 2025-12-08-14:30
+
 # Install system deps for OpenCV (Debian 13)
 RUN apt-get update && apt-get install -y \
     libgl1 \
